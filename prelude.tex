@@ -1,0 +1,23 @@
+\input opmac
+
+\def\N{{\bbchar N}}
+\def\Z{{\bbchar Z}}
+\def\Q{{\bbchar Q}}
+\def\R{{\bbchar R}}
+\def\C{{\bbchar C}}
+\def\dif{\,\mathop{}\!{\rm d}}
+\def\tuple#1{\langle\!\langle#1\rangle\!\rangle}
+\def\frac#1#2{{{#1} \over {#2}}}
+
+\newcount\stmtnum
+\def\partag#1{\par\medskip\noindent{\bf #1\enspace}\ignorespaces}
+\def\stmttag#1{\advance\stmtnum by1 \partag{#1}}
+\def\stmtdef#1#2{\expandafter\def\csname#1\endcsname##1.{\ifx\relax##1\relax
+  \stmttag{#2 \the\stmtnum.}\else\stmttag{#2 \the\stmtnum\ (##1).}\fi}}
+\stmtdef{definition}{Definition}
+\stmtdef{theorem}{Theorem}
+\stmtdef{proposition}{Proposition}
+\stmtdef{lemma}{Lemma}
+\stmtdef{corollary}{Corollary}
+\stmtdef{remark}{Remark}
+\def\proof.{\par\smallskip\noindent{\bf Proof.\enspace}\ignorespaces}
