@@ -1,0 +1,209 @@
+============
+初探路径追踪
+============
+Date: 2022-11-03, 2022-11-09
+
+
+我曾经试图写一个软光栅渲染器，但是很快就觉得繁琐而乏味而放弃了。以画直线的
+Bresenham 算法为例：直线的端点到底在像素中心还是像素的角落？怎样才能优雅地区分
+和绘制八种方向的直线？这里面麻烦的细节是很多的。我画完三角形之后，想想接下来的
+内容：着色器、纹理贴图、裁剪、测试、混合，诸如此类，就觉得没有什么意思了。所以
+我后来跟着 Ray Tracing in One Weekend 写了一个简单的路径追踪渲染器，觉得很有意
+思，以本文记录学习过程。
+
+因为只是想大致了解光线追踪的方法，我没有完全按照教程的内容实现，对光线追踪除路
+径追踪之外的其它方法也只作简单了解。为了实现的简单，甚至连 BVH traversal 都没有
+做，直接暴力测试求交，形状、材质也只实现了最简单的几个，所以几个小时就写完了。
+我以后或许会再写基于 ray marching、photon mapping 或各种其它方法的渲染器，不过
+暂时就这么多。
+
+本文大致整理渲染器的实现思路，并试图让理解能力拔群的读者了解基础的路径追踪渲染
+方法。
+
+
+向量和射线的基础操作
+--------------------
+
+    typedef double dbl;
+    typedef struct { dbl x, y, z; } Vec;  // 3D coordinates or RGB color
+    typedef struct { Vec o, d; } Ray;  // o: origin, d: direction
+
+类型定义都很简单。第一行纯粹是为了让 "double" 与 "Vec" 和 "Ray" 等长，让代码更
+美观（笑）。"Ray.d" 假定为单位向量。
+
+    Vec const vec0 = { 0.0, 0.0, 0.0 };
+    Vec vec(dbl x, dbl y, dbl z);
+    Vec vadd(Vec a, Vec b); Vec vsub(Vec a, Vec b); Vec vbld(Vec a, Vec b);
+    Vec vmul(Vec a, dbl t); Vec vdiv(Vec a, dbl t);
+    Vec vdot(Vec a, Vec b); Vec vcrs(Vec a, Vec b);
+    dbl vsod(Vec a); dbl vmod(Vec a);  // vsod: squared module
+    Vec vnlz(Vec a);  // vnlz: normalize
+
+向量的基础操作：加、减、逐元素乘、数乘、数除、点乘、叉乘、取模、正规化。实现都
+是简单的，在此略去。
+
+    Ray ray(Vec o, Vec d); Ray rayn(Vec o, Vec d);
+    Vec rpos(Ray r, dbl t);  // simply returns o + d * t
+
+这里 "ray" 假定 "d" 为单位向量，而 "rayn(o, d)" 相当于 "ray(o, vnlz(d))"。
+
+这些函数全部强制内联。
+
+还有一个函数 "drnd"，返回在 [0, 1) 范围内的随机数。我还不会伪随机数生成算法，就
+先用 "ldexp" 加 "rand" 凑活用用：
+
+    dbl drnd() {
+        return ldexp((uint64_t)(rand()) << 30 | rand() << 15 | rand(), -45);
+    }
+
+
+主程序
+------
+
+在具体的渲染之前先看看主程序。摄像机的参数为
+"Vec cam_pos, cam_dir, cam_dx, cam_dy;"。
+
+    FILE *f;
+    // prepare "f" for image output //
+    
+    Vec cam_bl = vsub(cam_dir,
+                 vadd(vmul(cam_dx, IMG_WD / 2),
+                      vmul(cam_dy, IMG_HT / 2)));
+    
+    for (uint32_t i = 0; i < IMG_HT; ++i) {
+        uint8_t row[(IMG_WD * 3 + 1) &~3];
+        #pragma omp parallel for
+        for (uint32_t j = 0; j < IMG_WD; ++j) {
+            Vec out = vec0;
+            for (uint32_t k = 0; k < SAMPLE; ++k) {
+                Vec offset_x = vmul(cam_dx, j + drnd());
+                Vec offset_y = vmul(cam_dy, i + drnd());
+                Vec dir = vadd(cam_bl, vadd(offset_x, offset_y));
+                out = vadd(out, trace(NTRACE, rayn(cam_pos, dir)));
+            }
+            out = vdiv(out, SAMPLE);
+    
+            dbl const scl = 256.0 - 1e-5;
+            row[j * 3 + 0] = sqrt(out.z) * scl;
+            row[j * 3 + 1] = sqrt(out.y) * scl;
+            row[j * 3 + 2] = sqrt(out.x) * scl;
+        }
+        fwrite(row, sizeof(row), 1, f);
+    }
+    
+    fclose(f);
+
+这里 "IMG_WD" "IMG_HT" 指定图像的尺寸，"SAMPLE" 指定采样率，"NTRACE" 指定最大反
+射次数。姑且做了 gamma = 2 的修正。
+
+
+场景的表示
+----------
+
+在开始路径追踪之前，还需要考虑如何表示和存储场景。最简单的场景无非是几何体和光
+源。为了支持不同的几何体类型和材质类型，我用数组分别存储每一个几何体和材质，然
+后用类型和下标的方式访问，大概像这样：
+
+    SphereS spheres[N];
+    DiscS discs[N];
+    
+    MirrorM mirrors[N];
+    LambertianM lambertians[N];
+    
+    typedef struct {
+        uint32_t shape_type, shape_idx;
+        uint32_t material_type, material_idx;
+    } Object;
+    Object objects[N];
+
+这里将材质反射特性和反光特性一起考虑。如果需要更精细的控制，可以再实现不同的反
+光类型。
+
+
+碰撞检测与着色
+--------------
+
+    dbl (*shape_norm[])(uint32_t idx, Vec p)
+        = { shape_norm, disc_norm };   // compute normal at given point
+    dbl (*shape_coll[])(uint32_t idx, Ray r, dbl lo, dbl hi)
+        = { sphere_coll, disc_coll };  // collision-detect
+    Vec (*material_color[])(uint32_t i, uint32_t ttl, Hit *h);
+
+    typedef struct { Vec p, n, d; } Hit;
+
+    uint32_t hit_find(Ray r, Hit *h) {
+        uint32_t idx = UINT32_MAX, st, si;
+        dbl t = INFINITY;
+        for (uint32_t i = 0; i < n_objects; ++i) {
+            uint32_t ost = objects[i].st, osi = objects[i].si;
+            dbl tt = shape_coll[ost](osi, r, 1e-5, INFINITY);
+            if (tt < t) { idx = i; st = ost; si = osi; t = tt; }
+        }
+        if (idx == UINT32_MAX) return UINT32_MAX;
+        h->p = rpos(r, t);
+        h->n = shape_norm[st](si, h->p);
+        h->d = r.d;
+        return idx;
+    }
+
+    Vec trace(uint32_t ttl, Ray r) {
+        if (ttl-- == 0) return vec0;
+        Hit h; uint32_t i = hit_find(r, &h);
+        if (i == UINT32_MAX) return vec(1.0, 1.0, 1.0);  // ambient
+        return material_color[objects[i].mt](objects[i].mi, ttl, &h);
+    }
+
+简单解释一下光照计算的 motivation：在算力充足和采样率极高的情况下，光照理论上可
+以当作特殊的材质来处理：只要令其亮度极大即可。但是，在较低的采样率下用这样的方
+式计算光照会出现强烈的噪声，这是无法接受的。（简单地说：只要算力足够，就可以暴
+力出奇迹；可是算力不够，所以不得不做一些近似和优化。）
+
+这里没有实现光源，主要是因为没有想清楚光源和材质之间应该怎样交互。目前的设想是
+让光源利用 "Hit" 的数据近似为多个点光源，然后对每个点光源发射 shadow ray、计算
+着色。对于多边形光源，利用三角形光源也是不错的想法，但是计算会稍复杂一些。这样
+做法最大的缺点就是过于耗时，因为对每次反射都要分割光源。如果预先将光源等分，在
+靠近光源的地方误差是不可接受的。也许可以利用场景信息先算出光源上每一点与最近的
+物体之间的距离，然后据此分割光源。但是某些各向异性的光源和 BRDF 又不好处理。
+
+基本的路径追踪无法解决 SDS 问题。因为直接用 shadow ray 判定物体是否在阴影中，折
+射光的光照会被忽略。Photon mapping 大概是利用光子在介质中折射基本解决了这个问题
+，但是在精度和性能上都不够好，所以后来有了各种改进的方法。
+
+
+一些小细节
+----------
+
+感悟：任何计算只要重复 2400x1800x1024 次，都会花费大量时间。:P
+
+关于优化。虽然我因为主要关注算法，所以基本上放弃了优化，只是简单地写了一行
+"#pragma omp parallel for"，但是相关的内容也很有意思。主要有三个方面：一是并行
+计算，二是 SIMD，三是 GPU。第一个用 OpenMP 已经解决得相当好了，而后两个都与具体
+的硬件高度相关，所以做起来很麻烦，我暂时还没有精力搞，等有时间了可以先看看
+Enoki。
+
+关于渲染结果的输出。我最初和 Ray Tracing in One Weekend 一样使用 plain PPM 格式
+（以 "P3" 开头），后来改用二进制的 raw PPM 格式（以 "P6" 开头），使输出的图像文
+件更紧凑，大小不足原来的三分之一。这样的结果已经相当好了，但因为 PPM 不是常见的
+图像格式，较少受图像处理软件的支持，最后我改用了 BMP 格式，因为 BMP 图像的创建
+并不比 PPM 困难，但是工具支持好得多。下面的代码创建 24bpp BMP 图像，其中
+"IMG_WD" "IMG_HT" 为图像尺寸。有三点需要注意：一是颜色值以 BGR 顺序排列，二是每
+行的数据要填充到 4 字节的倍数，三是图像由下向上扫描（如果想要从上向下扫描，可以
+将第三行中的 "IMG_HT" 改为 "-IMG_HT"）。
+
+    void fputw(uint16_t x, FILE *f) { fputc(x, f); fputc(x >> 8, f); }
+    void fputd(uint32_t x, FILE *f) { fputw(x, f); fputw(x >> 16, f); }
+    
+    FILE *f = fopen("out.bmp", "wb"); fputc('B', f); fputc('M', f);
+        fputd(54 + IMG_WD * IMG_HT * 3, f); fputd(0, f); fputd(54, f);
+        fputd(40, f); fputd(IMG_WD, f); fputd(IMG_HT, f); fputw(1, f);
+        fputw(24, f); fputd(0, f); fputd(0, f); fputd(0, f); fputd(0, f);
+        fputd(0, f); fputd(0, f);
+    
+    uint8_t row[(IMG_WD * 3 + 1) &~3];
+    for (uint32_t i = 0; i < IMG_HT, ++i)
+        fwrite(row, sizeof(row), 1, f);
+
+最后的题外话：我听说 pbrt（https://www.pbrt.org/）和 Mitsuba
+（https://www.mitsuba-renderer.org/）都是优秀的开源渲染器，可以对照源码学习；当
+然前提是我有这个时间。另外我也见到一些 paper 中的 demo 用的是 Falcor，但是相关
+的资料很少。
