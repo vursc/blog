@@ -1,0 +1,279 @@
+title       Scratchpad
+
+# Notes on Programming Language Design
+
+Be explicit in the use of the `::` and `->` operators.
+
+Are traits properties of the type itself or the values of the type?
+
+How useful is traits of stuff other than types, generic types in particular?
+And beware that compile-time metaprogramming introduces a large class of
+type-valued functions.
+
+A basic principle is that adding new code should not break code that does not
+depend on the new code (or the package/module that contains it). However in the
+context of open types this principle can easily be violated. E.g. Extending
+some type `A` with trait `Foo` and `Foo` contains a member whose name collides
+with that of some member of `A`, or some member of previously extended trait
+`Bar`. Then all non-qualified use of that member would fail due to ambiguity.
+
+How should be traits defined in terms of? (The Scala approach or the Rust
+approach?) Should the `sort` function take a comparator function, require the
+type to have trait Comparable, or take a comparator type which satisfies some
+awkward trait? How should traits with no obvious owner be introduced (e.g. the
+`Reflexive[A, B]` trait which states that `a + b = b + a` whenever `a: A` and
+`b: B`). One does not want `extend unit with Reflexive[A, B]` stuff...
+
+Consider the type annotation syntax. Currently it is `val of type`, but would
+be more consistent if changed to `val: type`.
+
+Collections should have a `sink` method which receives some iterator and pushes
+all elements to the back. Like `let v: Vec[i32]; v->sink(range(0, 10));` or
+`Vec[i32]::sink(range(0, 10))`. Maybe even implement `map` in terms of some
+generalized `sink` which overwrites, or add a `sink` which pushes from the
+front?
+
+Note that both javascript and go cannot gracefully handle this:
+#<
+let [a,err] = foo(1);
+let [b,err] = bar(1);
+#>
+
+Hey dude, it is just annoying that you need to dedent your code for it to look
+nice in generated HTML output. I certainly do not expect this. Work on that
+later.
+
+
+# Notes on Operating System Design
+
+Capabilities are awesome, but I prefer delegating token management to some
+external program. Is that even possible? Besides, how the hell should the shell
+work? Extract filenames from the commandline and pass the program those handles
+instead? And wildcards, if not expanded by the shell (and I personally think
+the shell should not expand wildcards since I like being lazy), requires some
+sort of 'filtering capability' where requests are sent back to the authorizing
+program to check for validity, but isn't that just too complicated?
+
+Should user programs support shell scripts as configuration? That would
+complicate the shell somehow, but still nicer than having a separate language
+for each program's configuration (or is it?). After all, configuration scripts
+generally look more like shell scripts than 'scripts as in programs'. Complex
+ones such as editors still need a full-blown scripting language, of course.
+
+
+# 代数一百题
+
+本节的题目均来自王永喜老师的代数 100 题, 序号对应题号.
+
+92. 设 $f : \R^+ \to \R$ 满足对任意正实数 $x, y$ 都有
+#[
+    f\Bigl(\frac{x + y}{2}\Bigr) + f\Bigl(\frac{2xy}{x + y}\Bigr) = f(x) + f(y).
+#]
+求证: 对任意正实数 $x, y$ 都有 $2 f(\sqrt{xy}) = f(x) + f(y)$.
+
+(TODO)
+
+-----
+
+93. 求所有函数 $f : \R \to \R$, 使得对任意实数 $x, y, z, t$ 都有
+#[
+    \bigl(f(x) + f(z)\bigr) \bigl(f(y) + f(t)\bigr) = f(xy - zt) + f(xt + yz).
+#]
+
+(FIXME) (我只做出有理数的情况, 解答如下.)
+
+解. 记原式为 $P(x, y, z, t)$. 首先由 $P(0, 0, 0, 0)$ 得 $4 f(0)^2 = 2 f(0)$, 即 $f(0) = 0$ 或 $f(0) = 1/2$. 若 $f(0) = 1/2$, 则由 $P(x, 0, 0, 0)$ 得 $f(x) = 1/2$, 满足要求. 接下来设 $f(0) = 0$. 由 $P(1, 1, 1, 0)$ 得 $2 f(1)^2 = 2 f(1)$, 即 $f(1) = 0$ 或 $f(1) = 1$. 若 $f(1) = 0$, 则由 $P(x, 1, 0, 0)$ 得 $f(x) = 0$, 满足要求. 接下来设 $f(1) = 1$.
+
+接下来对非负整数 $k$ 归纳证明 $f(kx) = k^2 f(x)$. $k = 0$ 和 $k = 1$ 的情形是平凡的. 假设 $k \le u$ 时归纳假设成立, 考虑 $k = u+1$ 的情形. 由 $P(kx, 1, x, 1)$ 得 $2 f(kx) + 2 f(x) = f((k-1)x) + f((k+1)x)$, 即 $f((k+1)x) = (2k^2 + 2 - (k-1)^2) f(x) = (k+1)^2 f(x)$, 完成归纳. 这样就得到 $f(x) = x^2$ 对全体正有理数 $x$ 成立. 最后由 $P(0, 1, x, 1)$ 得 $2 f(x) = f(-x) + f(x)$, 即 $f(x) = f(-x)$, 从而 $f(x) = x^2$ 对全体有理数 $x$ 成立.
+
+综上, 所求的 $f$ 为 $f(x) = 0$, $f(x) = 1/2$ 和 $f(x) = x^2$.
+
+
+# 散题与解答
+
+01. 设 $a_1 = 4$, $a_2 = 1$, $a_{n+1} = 2a_n - 49a_{n-1} + 6 \cdot 7^n$. 求证: 对任意正整数 $k$, $a_k$ 是完全平方数. (协作体夏令营 2021 P1)
+
+证. 设 $b_n = a_n - 7^n/2$, 则有 $b_{n+1} = 2b_n - 49b_{n-1}$. 又因为 $b_1 = 1/2$, $b_2 = -47/2$, 解得
+#[
+    b_n = \frac{1}{4} \bigl((1+4\sqrt3i)^n + (1-4\sqrt3i)^n\bigr)
+    = \frac{1}{4} \bigl((2+\sqrt3i)^{2n} + (2-\sqrt3i)^{2n}\bigr),
+#]
+从而 $\sqrt{a_n} = \bigl((2+\sqrt3i)^n + (2-\sqrt3i)^n\bigr) / 2$ 是整数.
+
+-----
+
+02. 设 $a_1, \dots, a_n \in (0, 1)$, 求证:
+#[
+    \Bigl(\prod (1 + a_i)\Bigr)^{1/n} - \Bigl(\prod (1 - a_i)\Bigr)^{1/n}
+    \ge \frac{2}{n}(a_1 + \dots + a_n).
+#]
+(易湃 2022 模拟 10 代数 P3)
+
+证. (due csl) 我们对 $[0, 1]$ 中的 $a_1 \ge \dots \ge a_n$ 证明原不等式. 考虑原式取最小值时的一组 $(a_1, \dots, a_n)$. 下面对 $k$ 归纳证明, 对任意 $k = 1, \dots, n$ 有 $a_1 = \dots = a_k$. 当 $k = 1$ 时是平凡的; 假设 $k = t < n$ 时归纳假设成立, 来证 $k=t+1$ 的情形. 用反证法, 设原式在 $(a_1, \dots, a_n)$ 处取最小值, 且 $a_1 = \dots = a_t = x_0 > a_{t+1}$. 记 $f(x)$ 为原式在 $(x, \dots, x, a_{t+1}, \dots, a_n)$ 处的取值, 则
+#[
+\begin{aligned}
+    f'(x_0)
+    &= \frac{t}{n} \Biggl(
+        \biggl(\frac{\prod_{k=t+1}^n(1+a_i)}{(1+x_0)^{n-t}}\biggr)^{1/n} +
+        \biggl(\frac{\prod_{k=t+1}^n(1-a_i)}{(1-x_0)^{n-t}}\biggr)^{1/n} - 2
+    \Biggr) \\
+    &\ge \frac{2t}{n} \Biggl(\biggl(
+        \frac{\prod_{k=t+1}^n(1-a_i^2)}{(1-x_0^2)^{n-t}}
+    \biggr)^{1/n} - 1\Biggr) > 0.
+\end{aligned}
+#]
+取充分小的 $\epsilon$ 使得 $x_0 - \epsilon > a_{t+1}$ 且
+#[
+    \left|\frac{f(x - \epsilon) - f(x)}{-\epsilon} - f'(x_0)\right|
+    < \frac{f'(x_0)}{2},
+#]
+则 $f(x - \epsilon) < f(x)$, 与反证假设矛盾. 于是 $a_1 = \dots = a_{t+1}$, 完成归纳.
+
+取 $k = n$, 知原式取最小值时必有 $a_1 = \dots = a_n$. 此时原不等式显然成立.
+
+-----
+
+03. 若实数 $x_1, \dots, x_{50}$ 满足 $\sum_{i=1}^{50} x_i/(k+i) = 1/(2k+1)$ 对任意 $k = 1, \dots, 50$ 成立, 求 $\sum_{i=1}^{50} x_i / (2i+1)$.
+
+解. 考虑以 $1, \dots, 50$ 为根的 $50$ 次多项式
+#[
+    f(x) = (x+1) \dots (x+50)
+    \Bigl((2x+1)\sum_{i=1}^{50} \frac{x_i}{x+i} - 1\Bigr),
+#]
+则 $f(x) = c (x-1) \dots (x-50)$, 其中 $c$ 为待定常数. 取 $x = -1/2$ 解得 $c = -1/101$.
+
+再取 $x = 1/2$, 即得 $\sum_{i=1}^{50} x_i / (2i+1) = -1/10201$.
+
+-----
+
+04. 设 $n$ 为正整数, 数列 $\{a_i\}$, $\{b_i\}$ 满足 $a_1 \ge \dots \ge a_n \ge 0$, $b_1 \ge \dots \ge b_n \ge 0$, $a_1 + \dots + a_n = b_1 + \dots + b_n = 1$. 求 $S = (a_1 - b_1)^2 + \dots + (a_n - b_n)^2$ 的最大值.
+
+解. 当 $a_1 = 1$, $a_i = 0, i = 2, \dots, n$ 且 $b_i = 1/n, i = 1, \dots, n$ 时 $S = 1 - 1/n$. 下证此即最大值.
+
+不妨设 $a_1 \ge b_1$. 注意到 $a_i < b_i$ 时 $b_i - a_i \le b_i \le b_1$, 从而 $(b_i - a_i)^2 \le b_1 (b_i - a_i)$. 于是有
+#[
+\begin{aligned}
+    S &= \sum_{a_i \ge b_i} (a_i - b_i)^2 + \sum_{a_i < b_i} (b_i - a_i)^2 \\
+    &\le \Bigl(\sum_{a_i \ge b_i} (a_i - b_i)\Bigr)^2
+    + b_1 \sum_{a_i < b_i} (b_i - a_i) \\
+    &\le (1 - b_1)^2 + b_1 (1 - b_1) = 1 - b_1 \le 1 - 1/n.
+\end{aligned}
+#]
+
+-----
+
+05. 设 $0 \le a, b, c, d \le 1$, 求证:
+#[
+    \frac{1}{1+a+b} + \frac{1}{1+b+c} + \frac{1}{1+c+d} + \frac{1}{1+d+a}
+    \le \frac{4}{1 + 2 \sqrt[4]{abcd}}.
+#]
+(女奥 2023 Day 1 P3)
+
+证. 首先证明下面的引理: 设 $0 \le t, x, y \le 1$, 则有
+#[
+    \frac{1}{1+x+t} + \frac{1}{1+y+t} \le \frac{2}{1+\sqrt{xy}+t}.
+#]
+设 $r = 1 + t$. 只需证 $(2r + x + y)(r + \sqrt{xy}) \le 2(r + x)(r + y)$, 即 $2xy - (x + y)\sqrt{xy} + r(x + y - 2\sqrt{xy}) \ge 0$. 由 $t \ge 0$ 知 $r \ge 1$, 而 $x + y - 2\sqrt{xy} \ge 0$, 故只需证 $r = 1$ 的情形, 即 $(1 - \sqrt{xy})(x + y - 2\sqrt{xy}) \ge 0$. 引理证毕.
+
+下面回到原题. 利用引理, 有
+#[
+\begin{aligned}
+    \text{LHS}
+    &= \biggl(\frac{1}{1+a+b} + \frac{1}{1+d+a}\biggr)
+    + \biggl(\frac{1}{1+b+c} + \frac{1}{1+c+d}\biggr) \\
+    &\le \frac{2}{1 + a + \sqrt{bd}} + \frac{2}{1 + c + \sqrt{bd}}
+    \le \frac{4}{1 + \sqrt{ac} + \sqrt{bd}} \le \text{RHS}.
+\end{aligned}
+#]
+
+-----
+
+06. 记正整数 $n$ 的正因数个数为 $d(n)$. 称正整数 $n$ 为好数, 若对 $1 \le k < n$ 都有 $d(k) < d(n)$. 证明: (1) 至多存在有限对连续的好数 $(a, b)$, 使得 $a \mid b$; (2) 对任意素数 $p$, 都存在无穷多正整数 $n$, 使得 $n$ 和 $np$ 均为好数. (ISL2005 N5)
+
+证. (1) 若 $(a, b)$ 满足要求, 则对 $a < k < b$ 都有 $d(k) \le d(a)$. 注意到 $2a > a$, $d(2a) > d(a)$, 故 $2a \ge b$. 由 $a \mid b$, $a < b$ 得 $b \ge 2a$, 从而 $b = 2a$. 接下来只需说明 $a$ 有上界即可.
+
+显然, 所有好数都形如 $p_1^{\alpha_1} \dots p_s^{\alpha_s}$, 其中 $p_1 < \dots < p_s$ 为最小的 $s$ 个素数, 且 $\alpha_1 \ge \dots \ge \alpha_s$. 我们考虑对充分大的 $a$ 构造 $c$, 使得 $c < 2a$ 且 $d(c) > d(a)$. 若 $\alpha_1 \ge \alpha_2 + 2$, 取 $c = 3a/2$ 即可. 否则, 若 $\alpha_1 > 3$, 取 $c = 4a/3$ 即可. 只需说明 $\alpha_1 > 3$ 对充分大的 $a$ 成立. 取 $r$ 使得 $p_r > 2^5$. 若 $a > (p_1 \dots p_{r-1})^3$ 且 $\alpha_1 \le 3$, 则 $a \le (p_1 \dots p_s)^3$, 从而 $s > r-1$. 取 $t = 2^5 a/p_r$, 注意到 $d(t) > d(a)$ 且 $a < t$, 故 $a$ 不是好数. 所以满足要求的 $a$ 有上界 $(p_1 \dots p_r)^3$. 证毕.
+
+(2) 设 $p = p_t$. 可以与前面类似地证明, 当好数 $n$ 充分大时, $\alpha_t$ 也充分大 (只需再利用 $\alpha_t$ 的上界给出 $\alpha_1, \dots, \alpha_{t-1}$ 的上界即可, 证明从略). 对任意正整数 $\alpha$, 取最小的好数 $n$ 使得 $v_p(n) \ge \alpha$. 只需证明 $n/p$ 是好数, 再由 $\alpha$ 可以任意大, 知这样的 $n/p$ 有无穷多, 原命题得证.
+
+用反证法, 设 $n/p$ 不是好数, 则存在好数 $m < n/p$, $d(m) \ge d(n/p)$. 又由 $m < n/p < n$, 知 $v_p(m) < v_p(n)$, 从而 $v_p(m) \le v_p(n/p)$, 故
+#[
+    d(mp) = \frac{v_p(m)+2}{v_p(m)+1} d(m) \ge \frac{v_p(n/p)+2}{v_p(n/p)+1} d(n/p) = d(n),
+#]
+但是 $mp < n$, 所以 $n$ 不是好数, 矛盾! 所以 $n/p$ 是好数. 证毕.
+
+-----
+
+07. 给定正整数 $m, n$ 和集合 $S = \{ x_1, \dots, x_m \} \subseteq \R^+$. 设 $A_1, \dots, A_n$ 为 $S$ 的非空子集. 求
+#[
+    F = \sum_{i=1}^n \sum_{j=1}^n
+    \frac{\sigma(A_i \cap A_j)}{\sigma(A_i) \sigma(A_j)}
+#]
+的最小值, 其中 $\sigma(X) = \sum_{x \in X} x$. (清华金秋营 2016)
+
+解. 取 $A_1 = \dots = A_n = S$, 则 $F = n^2/\sigma(S)$. 下证此即为最小值: 因为
+#[
+\begin{gather*}
+    F = \sum_{x \in S} \sum_{A_i \ni x} \sum_{A_j \ni x}
+    \frac{x}{\sigma(A_i) \sigma(A_j)}
+    = \sum_{x \in S}
+    \biggl(x \biggl(\sum_{A_i \ni x} \frac{1}{\sigma(A_i)}\biggr)^2\biggr), \\
+    \sum_{x \in S} \biggl(x \sum_{A_i \ni x} \frac{1}{\sigma(A_i)}\biggr)
+    = \sum_{i=1}^n \sum_{x \in A_i} \frac{x}{\sigma(A_i)} = n,
+\end{gather*}
+#]
+所以
+#[
+    F \ge \frac{n^2}{\sum_{x \in S} x} = \frac{n^2}{\sigma(S)}.
+#]
+
+
+# 其它题目
+
+01. 求所有函数 $f : \R^+ \to \R^+$, 使得对任意正实数 $x, y$ 都有
+#[
+    f\biggl( f(x) + \frac{y+1}{f(y)} \biggr) = f(x) + \frac{y+1}{y}.
+#]
+
+02. 对正整数 $n > 1$, 设 $p$ 为 $n$ 的最大素因子, 取 $r$ 使得 $p^r \le n < p^{r+1}$, 定义 $f(n) = p^r + 1$. 求所有 $n$, 使得 $f^{(k)}(n)$ 有界.
+
+03. 设正实数 $a, b, c$ 满足 $a + b + c = 3$, 证明:
+#[
+    \frac{a}{\sqrt{b}} + \frac{b}{\sqrt{c}} + \frac{c}{\sqrt{a}}
+    + ab + bc + ca \ge 6.
+#]
+
+04. 求所有 $n$, 使得存在 $\{1, \dots, n\}$ 的排列 $\sigma$, 使得
+#[
+    \sqrt{\sigma_1 + \sqrt{\sigma_2 + \sqrt{\dots + \sqrt{\sigma_n}}}}
+    \in \mathbb{Q}.
+#]
+
+05. 对正整数 $n > 1$, 设 $m = \phi(n)$, $1, \dots, n$ 中所有与 $n$ 互质的数为 $a_1, \dots, a_m$. 若 $m$ 的质因子集为 $n$ 的质因子集的子集, 求证: 对任意自然数 $k$ 都有 $m \mid \sum_{i=1}^m a_i^k$.
+
+06. 设非负实数 $x, y, z$ 满足 $x \ge y$, 求证: $x^3 - y^3 + z^3 + 1 \ge 6 (x-y) \sqrt{xyz}$.
+
+07. 设非负实数 $x, y, z$ 满足 $x^2 + y^2 + z^2 = 2(xy + yz + zx)$, 求证: $(x + y + z)^2 \ge 54 xyz$.
+
+
+# TODO
+
+- Continued fractions
+
+- Popovicu's Inequality & Properties of Majorization
+
+- Newton's Method for numerical solution finding
+
+- https://zhuanlan.zhihu.com/p/346724760
+
+- Calling conventions for variadic function arguments
+
+- Generic parameter outlining (with std::array as example)
+
+- SPICE Gate-level Netlist
+
+#[
+    \lim_{n \to \infty} \frac{1}{n^2}
+    \sum_{p=1}^n \sum_{q=1}^n \delta(\gcd(p, q), 1) = \frac{6}{\pi^2}
+    \quad \text{(Dirichlet)}.
+#]

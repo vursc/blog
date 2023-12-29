@@ -1,0 +1,26 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>简单易懂的 Pratt Parsing</title><style>html{font-family:"Sarasa Mono SC",sans-serif}body{margin:0 auto;max-width:48em;padding:0 1em}h1,h2{border-bottom:.1ex solid #000;font-weight:400}em{font-style:normal;font-weight:700}p{white-space:pre-wrap}pre{margin-left:-1em;margin-right:-1em;padding:1em}code,pre{background-color:beige;font-family:Iosevka,monospace;overflow:auto}</style></head><body><h1>简单易懂的 Pratt Parsing</h1><div><a href="../index.html">[Index]</a> <span>Created 2023-03-16</span></div><p>我几年前写命令行计算器时曾偶然发现过这个算法，Pratt Parsing 这个名称是后来看到一篇相关的文章才知道的。Pratt Parsing 能高效地处理表达式中的运算符优先级，而且实现并不复杂。本文对它作简要介绍。</p><p>我们假设词法分析已经完成，得到四类 token：T、O、E、X，分别表示项、运算符、结束符和其它。例如，表达式 "1 + 2 * a + b ;" 被解析为以下的 token stream：</p><pre>    T(1) O(+) T(2) O(*) T(a) O(+) T(b) E</pre><p>按照通常的约定，我们认为乘号的优先级高于加号，且加号、乘号均为左结合，所以期望上面的 token stream 被解析为表达式树 "(+ 1 (+ (* 2 a) b))"，也就是：</p><pre>         (+)
+        /   \
+      (+)    b
+     /   \
+    1     (*)
+         /   \
+        2     a</pre><p>理解 Pratt Parsing 的关键在于将这棵表达式树转过来看：</p><pre>                                              (+)---b
+            (+)---2       (+)---(*)---a        |
+    1  -->   |       -->   |     |       -->  (+)---(*)---a
+             1             1     2             |     |
+                                               1     2</pre><p>上图展示了表达式树的构建过程。为了解析一个表达式，首先解析第一项，然后成对处理运算符和项。对于每对运算符和项，在从最右侧的叶子节点到树根的路径上，取第一个运算符优先级低于当前运算符优先级的节点，将新增的节点作为其子节点，并将原有的节点作为新增节点的左子节点。</p><p>在上面的图示中，最上面一行就是「从最右侧的叶子节点到树根的路径」，因此容易看出表达式树构建的规律。我当初正是这样发现了 Pratt Parsing。</p><p>虽然上述增量构建表达式树的算法工作得很好，一个更优雅的方案是将在所述路径上每个节点的左子树保存在 continuation（或者说 call stack）中，避免显式地修改树结构。简单地实现如下，其中 "peek" 和 "next" 用于访问 token stream：</p><pre>    (define (parse-expr limit)
+      (let ((result (parse-tail limit (parse-stem))))
+        (next) result))
+
+    (define (parse-stem)
+      (match (peek)
+        (`(T ,x) (next) `(Leaf ,x))))
+
+    (define (parse-tail limit stem)
+      (match (peek)
+        (`(E) stem)
+        (`(O ,x)
+          (let ((prec (precedence x)))
+            (if (<= prec limit) stem
+              (begin (next)
+                (parse-tail limit `(Node ,x ,stem ,(parse-expr prec)))))))))</pre><p>这个程序实现了最基本的 Pratt Parsing。接下来考虑它的两个常见扩展：前缀运算符和括号。前缀运算符可以在 "parse_stem" 中处理，只需在遇到运算符时递归即可；而括号的支持更为直接：只需使 "parse_stem" 在遇到左括号时调用 "parse_expr" 并将右括号当作结束符即可。</p><p>除此之外，如果希望运算符从右向左结合，只需将 "precedence(x) &lt;= limit" 中的 "&lt;=" 改为 "&lt;" 即可。用表达式树的观点来看，这使得新节点被插入到所有与之具有相同运算符优先级的节点的最后。</p><p>另一个常见的特性，后缀运算符，的情况则更为复杂。程序需要确定一列运算符中唯一的中缀运算符，其左侧的运算符视为前一项的后缀，右侧的运算符则视为后一项的前缀。这可能需要一定的 heuristic，或者要求运算符不能同时作为后缀运算符和中缀运算符。</p><h2>参考资料</h2><p>[1<br/>    https://matthewmanela.com/blog/a-monadic-pratt-parser/</p><p>[2<br/>    https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing</p><p>[3<br/>    https://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/</p><p>[4<br/>    https://www.oilshell.org/blog/2017/03/31.html</p><p>[5<br/>    https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html</p><p>[6<br/>    https://crockford.com/javascript/tdop/tdop.html</p><p>[7<br/>    https://eli.thegreenplace.net/2010/01/02/top-down-operator-precedence-parsing</p></body></html>

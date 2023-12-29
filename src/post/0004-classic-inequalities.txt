@@ -1,0 +1,212 @@
+title       经典不等式总结
+created     2023-07-27
+updated     2023-08-19
+
+我最近做题的时候, 感觉对学过的不等式印象模糊, 于是以本文稍作总结 (抄书).
+
+……不过其实我感觉经典不等式在实际的题目中用得很少, 不过姑且算是复习也罢.
+
+
+# Bernoulli 不等式
+
+若实数 $x_1, \dots, x_n \in (-1, 0)$ 或 $x_1, \dots, x_n >\ 0$, 则有
+#[
+    (1 + x_1) \dots (1 + x_n) \ge 1 + x_1 + \dots + x_n.
+#]
+
+取等: $n = 1$. 直接对 $n$ 归纳即证.
+
+
+# 排序不等式与 Chebyshev 不等式
+
+设实数 $x_1 \le \dots \le x_n$ 及 $y_1 \le \dots \le y_n$.
+
+排序不等式: 对 $\{ 1, \dots, n \}$ 的任意排列 $\{ \sigma(1), \dots, \sigma(n) \}$, 都有
+#[
+    \sum x_i y_i \ge \sum x_i y_{\sigma(i)} \ge \sum x_i y_{n+1-i}.
+#]
+
+Chebyshev 不等式:
+#[
+    \sum x_i y_i \ge \frac{1}{n} \Bigl(\sum x_i\Bigr) \Bigl(\sum y_i\Bigr)
+    \ge \sum x_i y_{n+1-i}.
+#]
+
+以上两式, 取等和证明略.
+
+
+# Schur 不等式
+
+取定非零实数 $r$. 对任意非负实数 $x, y, z$ 有
+#[
+    \sum x^r (x-y) (x-z) \ge 0.
+#]
+
+取等: $x = y = z$, 或 $x = 0, y = z$ 及其排列.
+
+注意当 $r = 0$ 时 $\sum (x-y) (x-z) \ge 0$ 是显然的, 取等只有前者.
+
+证明: 记原式左边的三项分别为 $F_x, F_y, F_z$. 不妨设 $x \ge y \ge z$, 则 $F_x \ge 0$, $F_y \le 0$, $F_z \ge 0$. 讨论 $r$ 的符号: 若 $r > 0$, 由 $|F_x| \ge |F_y|$ 得证; 若 $r < 0$, 由 $|F_z| \ge |F_y|$ 得证.
+
+特别地, 取 $r = 1$, 有
+#[
+    \sum x^3 + 3 xyz \ge \sum x^2 y.
+#]
+
+
+# Jensen 不等式
+
+设 $f$ 是 $(a, b)$ 上的凸函数, 则对任意实数 $x_1, \dots, x_n \in (a, b)$ 及和为 $1$ 的正实数 $\lambda_1, \dots, \lambda_n$, 都有
+#[
+    f\Bigl(\sum \lambda_i x_i\Bigr) \le \sum \lambda_i f(x_i).
+#]
+
+取等: $f$ 在 $(\min x_i, \max x_i)$ 上是线性的. 证明略.
+
+
+# Karamata 不等式
+
+定义: 若两个和相等的单调递减数列 $x_1, \dots, x_n$, $y_1, \dots, y_n$ 满足 $x_1 + \dots + x_k \ge y_1 + \dots + y_k$ 对任意 $k$ 成立, 则称 $\{x_i\}$ 优超 $\{y_i\}$, 记作 $\{x_i\} \succ \{y_i\}$.
+
+设 $f$ 是区间 $(a, b)$ 上的凸函数, 则对任意 $\{x_i\} \succ \{y_i\}$, 其中 $x_i, y_i \in (a, b)$, 都有
+#[
+    \sum f(x_i) \ge \sum f(y_i).
+#]
+
+取等略. 直接用 Jensen 不等式即证.
+
+
+# Muirhead 不等式
+
+若非负数列 $\{a_i\} \succ \{b_i\}$, 则对任意非负实数 $x_1, \dots, x_n$ 有
+#[
+    \sum_\text{sym} \prod_i x_i^{a_i} \ge \sum_\text{sym} \prod_i x_i^{a_i}.
+#]
+
+取等: $x_1 = \dots = x_n$. 证明略.
+
+
+# Newton 不等式与 Maclaurin 不等式
+
+对正实数 $x_1, \dots, x_n$, 定义 $t_k = \sigma_k / \binom{n}{k}$, 其中
+#[
+    \sigma_k = \sum_\text{sym} x_1 \dots x_k.
+#]
+
+Newton 不等式: $t_k^2 \ge t_{k-1} t_{k+1}$.
+
+Maclaurin 不等式: 对 $1 \le i < j \le n$, 有 $t_i^{1/i} \ge t_j^{1/j}$.
+
+以上两式在 $x_1 = \dots = x_n$ 时取等.
+
+
+# Young 不等式
+
+若正实数 $p$, $q$ 满足 $1/p + 1/q = 1$, 则对任意非负实数 $a$, $b$ 有
+#[
+    ab \le \frac{a^p}{p} + \frac{b^q}{q}.
+#]
+
+取等: $a = b^{q-1} \iff b = a^{p-1} \iff a^p = b^q$.
+
+证明: 取定 $a$. 将 $\text{RHS} - \text{LHS}$ 对 $b$ 求导得 $b = a^{p-1}$, 再利用 $1/p + 1/q = 1$ 化简原式即证.
+
+
+# Holder 不等式
+
+若正实数 $p$, $q$ 满足 $1/p + 1/q = 1$, 则对任意非负实数 $x_1, \dots, x_n, y_1, \dots, y_n$ 有
+#[
+    \sum x_i y_i \le \Bigl(\sum x_i^p\Bigr)^{1/p} \Bigl(\sum y_i^q\Bigr)^{1/q}.
+#]
+
+取等: $x_i$ 全零, 或 $y_i$ 全零, 或 $x_i^p = y_i^q$ 对所有 $i$ 成立.
+
+证明: 不妨设 $\sum x_i^p = \sum y_i^q = 1$, 则只需证 $\sum x_i y_i \le 1$. 由 Young 不等式得 $x_i y_i \le x_i^p/p + y_i^q/q$, 对 $i$ 累加即证.
+
+特别地, 取 $p = 1/(r+1)$ 和 $q = -1/r$, 有权方和不等式
+#[
+    \sum \frac{x_i^{r+1}}{y_i^r}
+    \ge \frac{\bigl(\sum x_i\bigr)^{r+1}}{\bigl(\sum y_i\bigr)^r}.
+#]
+
+推论: 设 $a_{i,j}$ 为正实数, 其中 $1 \le i \le m$, $1 \le j \le n$, 则对任意和为 $1$ 的正实数 $\lambda_1, \dots, \lambda_n$ 都有
+#[
+    \sum_i \Bigl(\prod_j a_{i,j}^{\lambda_j}\Bigr)
+    \le \prod_j \Bigl(\sum_i a_{i,j}\Bigr)^{\lambda_j}.
+#]
+
+取等: $ a_{i,j}^{\lambda_j} = a_{i,k}^{\lambda_k} $ 对所有 $i, j, k$ 成立. 直接对 $n$ 归纳即证.
+
+推论: 对任意正实数 $x_1, x_2, x_3$, $y_1, y_2, y_3$, $z_1, z_2, z_3$ 都有
+#[
+    (x_1^3 + x_2^3 + x_3^3)(y_1^3 + y_2^3 + y_3^3)(z_1^3 + z_2^3 + z_3^3)
+    \ge (x_1 y_1 z_1 + x_2 y_2 z_2 + x_3 y_3 z_3)^3.
+#]
+
+
+# 幂平均不等式
+
+对任意正实数 $x_1, \dots, x_n$, 其幂平均 $M(r)$ 单调递增, 其中
+#[
+    M(r) = \begin{cases}
+        \bigl(\prod x_i\bigr)^{1/n} & r = 0, \\
+        \bigl(\sum x_i^r / n\bigr)^{1/r} & r \ne 0.
+    \end{cases}
+#]
+
+取等: $x_1 = \dots = x_n$.
+
+证明: 设非零实数 $u < v$, 下证 $M(u) \le M(v)$: 这是因为
+#[
+\begin{aligned}
+    \bigl(M(u)\bigr)^u &= \sum \frac{x_i^u}{n}
+    = \sum \frac{x_i^u}{n^{u/v}} \cdot \frac{1}{n^{1-u/v}} \\
+    &\le \Biggl(\sum \biggl(\frac{x_i^u}{n^{u/v}}\biggr)^{v/u}\Biggr)^{u/v}
+    \Biggl(\sum \biggl(\frac{1}{n^{1-u/v}}\biggr)^{1/(1-u/v)}\Biggr)^{1-u/v} \\
+    &= \Biggl(\sum \biggl(\frac{x_i^v}{n^v}\biggr)\Biggr)^{u/v}
+    = \Bigl(\bigl(M(v)\bigr)^v\Bigr)^{u/v} = \bigl(M(v)\bigr)^u.
+\end{aligned}
+#]
+又因为 $M(0)$ 的定义使得 $M(r)$ 在 $0$ 处连续, 原不等式得证.
+
+
+# Minkowski 不等式
+
+设 $a_1, \dots, a_n$, $b_1, \dots, b_n$ 为正实数, 则对任意正实数 $p$ 有
+#[
+    \Bigl(\sum (a_i+b_i)^p\Bigr)^{1/p} \gtreqless
+    \Bigl(\sum a_i^p\Bigr)^{1/p} + \Bigl(\sum b_i^p\Bigr)^{1/p},
+#]
+其中不等号在 $p < 1$ 时取 '$\ge$', 在 $p > 1$ 时取 '$\le$'.
+
+当 $p > 1$ 时, 上式还有一个明显的几何意义, 即 $p$-范数的三角不等式.
+
+取等: $a_1 / b_1 = \dots = a_n/b_n$.
+
+证明: 可以利用 Holder 不等式证明 $p > 1$ 的情形. 取 $q = p/(p-1)$, 从而 $1/p + 1/q = 1$. 于是有
+#[
+\begin{aligned}
+    \sum (a_i + b_i)^p
+    &= \sum a_i (a_i + b_i)^{p-1} + \sum b_i (a_i + b_i)^{p-1} \\
+    &\le \biggl(\Bigl(\sum a_i^p\Bigr)^{1/p} + \Bigl(\sum b_i^p\Bigr)^{1/p}\biggr)
+    \Bigl(\sum (a_i + b_i)^{q(p-1)}\Bigr)^{1/q} \\
+    &= \biggl(\Bigl(\sum a_i^p\Bigr)^{1/p} + \Bigl(\sum b_i^p\Bigr)^{1/p}\biggr)
+    \Bigl(\sum (a_i + b_i)^p\Bigr)^{(p-1)/p},
+\end{aligned}
+#]
+再将右边的第二项除到左边, 原不等式得证.
+
+对于 $p < 1$ 的情形, 则直接用 Jensen 不等式: 令 $f(x) = (1 + x^{1/p})^p$ 为凸函数 (容易验证), 于是有
+#[
+    \Bigl(\sum b_i\Bigr)
+    \Biggl(1 + \biggl(\frac{\sum b_i (a_i/b_i)}{\sum b_i}\biggr)^{1/p}\Biggr)^p
+    \le \sum b_i \bigl(1 + (a_i/b_i)^{1/p}\bigr)^p,
+#]
+即
+#[
+    \biggl(\Bigl(\sum b_i\Bigr)^{1/p} + \Bigl(\sum a_i\Bigr)^{1/p}\biggr)^p
+    \le \sum \bigl(a_i^{1/p} + b_i^{1/p}\bigr)^p,
+#]
+再作代换 $a_i \gets a_i^p$ 和 $b_i \gets b_i^p$ 即得原式.
+
+事实上, $p > 1$ 的情形同样可以利用 Jensen 不等式证明; 此时 $f(x)$ 是凹函数.

@@ -1,0 +1,22 @@
+title       Status of this Blog
+created     2023-11-24
+
+Over the past three months, there has been no meaningful update to this blog, due to my being busy with coursework (and the situation would probably remain for a few more months). I eventually decided, however, that this blog needs an update to improve performance. This post reports the current progress.
+
+Previously, my blog was basically `index.html` and `index.json` hosted on GitHub Pages with a bunch of plaintext files. Javascript in the landing page fetches `index.json` and then the plaintext file corresponding to hash in the URL. For example, the URL for a blog post may be `https://vursc.github.io/blog/#/post/0001`.
+
+That works, though performance problems make it sluggish at best, and unusable at worst. With an unreliable, high-latency Internet connection, time-to-first-meaningful-paint can be as long as a minute, which is clearly unacceptable. The poor performance is inherent to the approach I took, that is, fetch blog source files from the client side and render them. In this update, I switched to the traditional static-site-generator approach, where I convert my blog source files to HTML files locally and then host the static HTML files on GitHub Pages. Thanks to the excessive verbosity of MathML syntax, math-heavy blog posts can grow over 40x in size. MathML compresses well, though, so that is not much of a problem here.
+
+Another problem with the original blog was the lack of syntatical constructs. Back when I created the awkward, minimal syntax for the blog, I thought I wouldn't need all those fancy features. I proved to be wrong. Inline code improves clarity a lot, and without them it can really be confusing. In addition to this addition, the syntax was made somewhat more structured and uniform. And the big thing -- LaTeX-y 'markup's (they are not macros, so I don't call them as such). Now I can do `\\href{https://...}` for a nice underlined link. Or `\\em{...}` for emphasis. Or whatever.
+
+Since an update seemed uninevitable, I made a few more tweaks. I switched the theme color from dark blue to yellowish green, which looks nicer, and changed the syntax for inline math from `\\(...\\)` to `\$...\$`. There may be more of those, but after all the changes are simply insignificant.
+
+To make the blogging process more enjoyable, I switched from Notepad3 to gedit for proper syntax highlighting. There is decent documentation regarding creating custom languages, that is, for the `GtkSourceView`.
+
+As for the implementation: In order to utilize \href[KaTeX]{https://katex.org/} for math, I implemented the converter with JavaScript. It really was a horrible experience: I just did not sort the string manipulation out, and produced typical spaghetti code. There was way too much error handling for a helper script, and the layout is awkward. It will probably be at least partially rewritten before the end of this update.
+
+The build scripts are available at `build.zip`. The gedit language definition file is available at `blog-page.lang`.
+
+Further work: The syntax has not quite been nailed down. Build performance is quite poor (maybe performant JavaScript requires special care with strings). More markups need to be implemented (e.g. for footnotes and page cross-references). Some CSS can be eliminated from pages, and KaTeX's output can potentially be minimized.
+
+And finally, I need an icon for the blog. That's all for now.

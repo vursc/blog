@@ -1,0 +1,64 @@
+/* [common] */
+html {
+  font-family: "Sarasa Mono SC", sans-serif;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 48em;
+  padding: 0 1em;
+}
+
+h1, h2 {
+  border-bottom: 0.1ex solid black;
+  font-weight: normal;
+}
+
+/* [list] */
+ol {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  margin: 1em 0;
+}
+
+time {
+  color: dimgray;
+  margin-right: 1ex;
+}
+
+/* [page] */
+em {
+  font-style: normal;
+  font-weight: bold;
+}
+
+p {
+  white-space: pre-wrap;
+}
+
+/* [rule] */
+hr {
+  border: 0.1ex dashed black;
+}
+
+/* [math] */
+p {
+  line-height: 2;
+  margin: 2em 0;
+}
+
+/* [code] */
+pre {
+  margin-left: -1em;
+  margin-right: -1em;
+  padding: 1em;
+}
+
+pre, code {
+  background-color: beige;
+  font-family: Iosevka, monospace;
+  overflow: auto;
+}

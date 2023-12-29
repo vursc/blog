@@ -1,0 +1,76 @@
+title       Notes on Big Rudin, Part 1
+created     2023-12-18
+
+
+# Chapter 1. Abstract Integration
+
+In a topological space, the family of open sets contains $\varnothing$ and the entire space and is closed under finite intersection and arbitary union. In a measurable space, the family of measurable sets contains $\varnothing$, and is closed under complement and countable union (such a family of subsets is called a $\sigma$-algebra). For any measure $\mu$, $\mu(\varnothing)$ must be zero.
+
+Simple functions are complex functions with only finitely many values, specifically, those $s = \sum_{k=1}^n a_k \chi_{E_k}$, where $a_1, \ldots, a_n$ are complex numbers and $\{E_k\}$ is a partition of the domain. For any measure $\mu$ define $\int s \,d\mu = \sum_k a_k \mu(E_k)$. The integral of a nonnegative measurable function $f$ is defined to be $\sup_s \int s \,d\mu$, where $s$ is any simple function such that $0 \le s \le f$.
+
+Any nonnegative measurable function can be approximated by an increasing sequence of nonnegative simple measurable functions, and such approximation preserves integrals, by Lebesgue's Monotone Convergence Theorem. Therefore, certain properties of simple functions generalize to measurable functions. Notably, $\sum_k \bigl(\int f_k \,d\mu\bigr) = \int \bigl(\sum_k f_k\bigr) \,d\mu$.
+
+Denote by $L^p(\mu)$ the set of complex measurable functions $f$ such that $\int |f|^p \,d\mu < \infty$.
+
+\em{Fatou's Lemma.} Let $\{f_k\}$ be a sequence of nonegative measurable functions, then
+#[
+\int (\liminf f_k) \,d\mu \le \liminf \Bigl(\int f_k \,d\mu\Bigr).
+#]
+
+\em{Lebesgue's Dominated Convergence Theorem.} For complex measurable functions $f_k \to f$, if there exists a nonnegative $g \in L^1(\mu)$ such that $|f_k| < g$ for all $k$, then $\int_X f \,d\mu = \lim \int_X f_k \,d\mu$. (Proof: apply Fatou's Lemma to the sequence $\{2g - |f - f_k|\}$.)
+
+#-------
+
+\em{Exercise 1.1.}  Suppose $\frak M$ is a countable $\sigma$-algebra in $X$. Associate with each $x \in X$ the set $A_x = \bigcap \{ E \in \frak M : x \in E \}$, then $A_x \in \frak M$ and the family $S$ of distinct $A_x$ forms a partition of $X$, since $x \in A_y$ implies $A_x \subseteq A_y$ and $y \in A_x$. Since $\frak M$ is infinite, $S$ must be infinite as well. But $\frak M$ contains the union of any countable $T \subseteq S$, hence $\frak M$ cannot be countable.
+
+\em{Exercise 1.5.}
+(a) Since $\{ x : f(x) < g(x) \} = \bigcup\nolimits_{r \in \mathbb Q} \bigl(\{ x : f(x) < r \} \cap \{ x : r < g(x) \}\bigr)$.
+(b) Apply (a) to $\limsup f_k$ and $\liminf f_k$, where $\{f_k\}$ is the given sequence.
+
+\em{Exercise 1.6.} Suppose $f : X \to \R$ is measurable. Let
+#[
+A = \{ t \in \R : f^{-1}((t, \infty)) \text{ is uncountable} \},
+#]
+then $A$ is nonempty and bounded above. Put $a = \sup A$, then $f^{-1}(\R \setminus \{a\})$ is at most countable. Therefore $f(x) = a$ for all but at most countably many $x \in X$, and $\int f \,d\mu = a$.
+
+\em{Exercise 1.7.} Apply the Dominated Convergence Theorem to the sequence $\{f_1 - f_k\}$. With the condition $f_1 \in L^1(\mu)$ omitted, let $\mu$ be the counting measure in $\N$, and
+#[
+f_n(x) = \begin{cases}
+    1, & x \ge n, \\
+    0, & x < n.
+\end{cases}
+#]
+
+\em{Exercise 1.10.} Pick $N$ such that $|f_n - f| < 1$ for all $n > N$. Apply the Dominated Convergence Theorem with $g = \sup |f_{n+1}| + 2$. With the condition $\mu(X) < \infty$ omitted, let
+#[
+f_n(x) = \begin{cases}
+    1/n, & x < n, \\
+    0, & x \ge n.
+\end{cases}
+#]
+
+\em{Exercise 1.12.} Let $f$ be nonnegative, wlog. Assume the contrary, that there exists $\epsilon > 0$ such that for all $\delta > 0$ there exists $E$ such that $\mu(E) < \delta$ but $\int_E f \,d\mu > \epsilon$. Put $\delta_k = 1/k$ with the corresponding $E_k$, and put
+#[
+f_k(x) = \begin{cases}
+    0, & x \in E_k, \\
+    f(x), & x \not\in E_k.
+\end{cases}
+#]
+Then $f_k \to f$ almost everywhere, and by the Monotone Convergence Theorem, $\int (f - f_k) \,d\mu \to 0$. (XXX: no! not monotone!)
+
+
+# Chapter 2. Positive Borel Measures
+
+This chapter constructs the Lebesgue Measure
+
+Let $X$ be a locally compact Hausdorff space. Denote by $C_c(X)$ the family of continuous complex functions on $X$ with compact support. For any positive linear functional $\Lambda$ on $C_c(X)$, there is a unique complete Borel measure $\mu$ in $X$ such that
+(a) $\int f \,d\mu = \Lambda f$ for all $f \in C_c(X)$,
+(b) all compact sets have finite measure,
+(c) all measurable sets are outer regular, and
+(d) all open sets and sets with finite measure are inner regular.
+
+If $X$ is $\sigma$-compact, then for all measurable $E$ there exists $V \supseteq E$ such that $\mu(V - E)$ is arbitarily small (since $X$ has $\sigma$-finite measure), and therefore $\mu$ is regular.
+
+\TODO{provide an example that a measurable function of a continuous function need not be measurable, even for the Lebesgue measure on $\R$.}
+
+\em{Exercise 2.6.} Let $X_0$ be $[0, 1]$. For each $k$, define $X_{k+1}$ be $X_k$ with the middle $1/(k+1)$ removed from each of the $2^k$ intervals of $X_k$. The final result $X = \bigcap X_k$ satisfies the requirements.

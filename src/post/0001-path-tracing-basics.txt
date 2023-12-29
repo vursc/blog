@@ -1,0 +1,212 @@
+title       Basics of Path Tracing
+created     2022-11-03
+updated     2023-12-08
+
+(This post was rewritten from scratch in the 2023-12-08 update, since I found the original version rather unreadable and thus incomprehensible. That version basically assumed prior knowledge in path tracing, making it pointless as a "quick introduction" to path tracing.)
+
+Programming is one of my favourite entertainments, and some programming exercises are particularly enjoyable for me: those that require little technical knowledge but much clever ideas and careful design, which are more about problem solving than engineering. OI problems are certainly of this class: one simply reads data from stdin, writes results to stdout, and nobody really does serious memory management. Renderers, in their simplest form, are pretty similar to those: just reverse-engineer a few BMP files to understand the format (probably easier than finding and then reading the spec :P) and start generating pixels.
+
+I started with the so-called software renderer, that is, a fancy triangle rasterizer with shading and blending and whatever. But I quickly got bored since things were too trivial, except Bresenham's algorithm, which is clever but... feels kinda clumsy. No fun.
+
+Then I encountered the awesome \sl{\href[Ray Tracing in One Weekend]{https://raytracing.github.io/books/RayTracingInOneWeekend.html}}, a detailed hands-on tutorial on path tracing, or more specifically, writing a toy path tracer. I really enjoyed the read and recommend you read it. As mentioned earlier, what follows is a quick introduction to path tracing, with a minimal amount of code.
+
+
+# The Basic Idea
+
+Path tracing is conceptually simple: ...
+
+
+# Vectors, Spheres and Planes
+
+Let `Num` be your preferred floating-point type, presumably `float`.
+
+Let `Vec` and `Dir` denote the three-dimensional vector and unit vector types, respectively. For simplicity, colors are represented, in their linear RGB form, with `Vec` as well. Mixing is done through component-wise multiplication. This is obviously NOT physically correct, but yields acceptable results. For "colors done right" see \em{Spectral Ray Tracing}.
+
+Next comes rays, represented with their endpoint `end` and (normalized) direction `dir`, such that `end + t * dir` is the point distance `t` away from the endpoint, for nonnegative `t`:
+
+#<
+struct Ray { end: Vec, dir: Dir }
+#>
+
+Then we need something to render. Spheres and planes are convenient for this purpose, since it is easy to test if they intersect given ray, or to compute the nearest intersection and its normal and uv coordinate, on which shading depends. Spheres are represented with its center and radius:
+#<
+struct Sphere { center: Vec, radius: Num }
+#>
+
+To compute the (potential) nearest intersection a sphere, note that any point `p` on the shpere satisfies `length(p - center) == radius`. Substitute `end + t * dir` for `p` and solve the quadric equation for `t`. Pretty straitforward.
+
+From that experience, one should expect the representation for planes be some equation with which one can solve `t` for. I choose to use the normal-offset pair to represent the plane consisting of points `p` such that `p * normal == offset`. Geometrically speaking, `offset` is the signed distance from the origin to the plane.
+
+Implementation note: proper handling `Infinity` and `NaN` yields simpler code.
+
+...\sl{What Every Computer Scientist Should Know about Floating-Point Arithmetic}
+https://acse-2020.github.io/ACSE-1/lectures/Lecture09/Lecture9.html
+https://acse-2020.github.io/README.html
+
+# Random Number Generation
+
+
+
+这里就用一个 LCG 敷衍了事。常数的选取参考了 \ref{2}。
+
+#<
+uint128_t rand_state = 0;
+
+Num random() {
+    rand_state = (rand_state + 1) *
+        (((__uint128_t)0x2D99787926D46932 << 64) | 0xA4C1f32680F70C55);
+    return (rand_state >> 76) * 0x1.0p-52;
+}
+#>
+
+在我最初的程序中，上面的 `return` 一行本来是：
+
+#<
+uint64_t tmp = 0x3FF0000000000000 | (rand_state >> 76);
+return ((union { uint64_t n; Num x; }){ .n = tmp }).x - 1.0;
+#>
+
+在十多年前的 Nehalem 架构上，这样写确实比前面的代码快三分之一。但是，现在还这样写得到的不是更好的性能，而是更大的代码（因为巨大的 "MOVABS" 指令）。实在是优化了个寂寞 :P
+
+（为什么右移 76 位？事实上只要右移至少 65 位就可以了，选择 76 是为了保持与原来一致的精度。如果右移少于 64 位，编译器会调用 `__floatuntidf` 进行整型到浮点型的转换；如果右移恰 64 位，由于 "CVTSI2SD" 只能转换有符号数，对较大的输入必须先除以二，还要考虑四舍五入……）
+
+
+# Ray Generation
+
+#<
+Vec cam_pos, cam_dir, cam_rgx, cam_rgy;
+#>
+
+在我们的模型中，相机位于 `cam_pos` 处，向从 "cam_dir - cam_rgx - cam_rgy" 直到 "cam_dir + cam_rgx + cam_rgy" 平行四边形范围内的点发出视线。
+
+程序的主循环实际上就是模拟照相机的行为：对于每个像素，随机生成若干条视线发射到场景中，对求得的颜色值取平均后量化、输出。这里用 OpenMP 简单做了并行化。（因为完全不需要同步，我猜测性能损失应该基本上来自调度和 cache。）
+
+#<
+Vec corner = vec_sub(cam_dir, vec_add(cam_rgx, cam_rgy));
+Vec step_x = vec_div(cam_rgx, IMAGE_WD / 2.0);
+Vec step_y = vec_div(cam_rgy, IMAGE_HT / 2.0);
+
+for (uint32_t i = 0; i < IMAGE_HT; ++i) {
+    uint8_t scanline[(IMAGE_WD * 3 + 3) >> 2 << 2] = {};
+
+    #pragma omp parallel for
+    for (uint32_t j = 0; j < IMAGE_WD; ++j) {
+        Vec pixel = vec(0.0, 0.0, 0.0);
+        for (int k = 0; k < SAMPLEPP; ++k) {
+            Vec delta_x = vec_mul(step_x, j + random());
+            Vec delta_y = vec_mul(step_y, i + random());
+            Vec dir_out = vec_add(corner, vec_add(off_x, off_y));
+            Vec color = trace(ray(cam_pos, vec_dir(dir_out)), MAX_DEPTH);
+            pixel = vec_add(pixel, color);
+        }
+        pixel = vec_div(pixel, SAMPLEPP);
+        scanline[j * 3 + 0] = quantize(pixel.z);
+        scanline[j * 3 + 1] = quantize(pixel.y);
+        scanline[j * 3 + 2] = quantize(pixel.x);
+    }
+
+    fwrite(scanline, sizeof(scanline), 1, fout);
+}
+
+uint8_t quantize(double x) {
+    return pow(min(x, 1.0) / 2.2) * 0x1.FFFFFFFFFFFFFp7;
+}
+#>
+
+
+# 对象和场景的表示
+
+#<
+struct Object {
+    Num (*poke)(Object *self, Colisn *coll, Object **obj, Ray r);
+    Vec (*cast)(Object *self, Colisn *coll, int depth);
+    union { /* "poke"-specific data */ } shape;
+    union { /* "cast"-specific data */ } mater;
+};
+#>
+
+这里用 "poke" 和 "cast" 命名只是为了对齐。（这样看着实在是相当舒服。）因此需要稍加解释："poke" 检测光线是否与自己碰撞，返回光走过的距离、碰撞的细节和与光碰撞的具体物体（这样做是为了将 bounding box 当成普通的 Object）；"cast" 计算光线的颜色。
+
+场景表示为 Object 数组。注意这个数组不一定包含场景中的所有对象，因为 bounding box 中的对象保存在其它 Object 数组中。
+
+接下来是最核心的部分：对于给定的光线，在场景中找出 nearest hit（"poke_objs"），并调用对应物体的 "cast" 函数获得颜色（"trace"）。
+
+#<
+Num poke_objs(Object *objl, Object *objr, Colisn *c, Object **t, Ray r) {
+    Num distance = HUGE_VAL;
+    for (Object *curr = objl; curr < objr; ++curr) {
+        Colisn coll;
+        Object *obj;
+        Num dist = curr->poke(curr, &coll, &obj, r);
+        if (dist < distance) {
+            distance = dist;
+            *c = coll;
+            *t = obj;
+        }
+    }
+    return distance;
+}
+#>
+
+#<
+Object *object_l, *object_r;
+
+Vec trace(Ray r, int depth) {
+    if (depth == 0) return vec(0.0, 0.0, 0.0);
+    Colisn colisn;
+    Object *target = NULL;
+    poke_objs(object_l, object_r, &colisn, &target, r);
+    return target == NULL ? vec(0.8, 0.8, 1.0) :
+        target->cast(target, &colisn, depth - 1);
+}
+#>
+
+最后只要耐心地实现各种形状和材质的 "poke" 和 "cast" 函数即可。
+
+
+# 一些小细节
+
+感悟：任何计算只要重复 3840x2160x1024 次，都会花费大量时间。:P
+
+关于优化。虽然我因为主要关注算法，所以基本上放弃了优化，只是简单地写了一行 "#pragma omp parallel for"，但是相关的内容也很有意思。主要有三个方面：一是并行计算，二是 SIMD，三是 GPU。第一个用 OpenMP 已经解决得相当好了，而后两个都与具体的硬件高度相关，所以做起来很麻烦，我暂时还没有精力搞，等有时间了可以先看看 Enoki。
+
+关于渲染结果的输出。我最初和 Ray Tracing in One Weekend 一样使用 plain PPM 格式（以 "P3" 开头），后来改用二进制的 raw PPM 格式（以 "P6" 开头），使输出的图像文件更紧凑，大小不足原来的三分之一。这样的结果已经相当好了，但因为 PPM 不是常见的图像格式，较少受图像处理软件的支持，最后我改用了 BMP 格式，因为 BMP 图像的创建并不比 PPM 困难，但是工具支持好得多。以下片段创建 24bpp BMP 图像的文件头，其中 "IMAGE_WD" "IMAGE_HT" 为图像尺寸。有三点需要注意：一是颜色值以 BGR 顺序排列，二是每行的数据要填充到 4 字节的倍数，三是图像由下向上扫描（如果想要从上向下扫描，可以将第三行中的 "IMAGE_HT" 改为 "-IMAGE_HT"）。
+
+#<
+uint8_t header[54];
+setb(header +  0, 'B');
+setb(header +  1, 'M');
+setd(header +  2, IMAGE_WD * IMAGE_HT * 3 + 54);
+setw(header +  6, 0);
+setw(header +  8, 0);
+setd(header + 10, 54);
+setd(header + 14, 40);
+setd(header + 18, IMAGE_WD);
+setd(header + 22, IMAGE_HT);
+setw(header + 26, 1);
+setw(header + 28, 24);
+setd(header + 30, 0);
+setd(header + 34, IMAGE_WD * IMAGE_HT * 3);
+setd(header + 38, 0);
+setd(header + 42, 0);
+setd(header + 46, 0);
+setd(header + 50, 0);
+fwrite(header, sizeof(header), 1, fout);
+#>
+
+需要的话，我以后可以再看看 pbrt [3]、Mitsuba [4] 和 Falcor [5]。不过，在那之前也许应该先看完系列的剩下两篇，然后学一遍 GAMES101。
+
+
+It took much longer to write this post up than to read \sl{Ray Tracing in One Weekend}
+
+# References
+
+\footnote{1} \href[Ray Tracing in One Weekend]{}
+
+\footnote{2} \href[Does It Beat the Minimal Standard?]{https://www.pcg-random.org/posts/does-it-beat-the-minimal-standard.html}
+
+\footnote{3} \href[Physically Based Rendering: From Theory to Implementation]{https://www.pbrt.org/}
+
+\footnote{4} \href[Mitsuba 3 - A Retargetable Forward and Inverse Renderer]{https://www.mitsuba-renderer.org/}
+
+\footnote{5} \href{https://developer.nvidia.com/falcor}

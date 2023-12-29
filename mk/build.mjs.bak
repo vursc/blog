@@ -1,0 +1,195 @@
+import * as node_fs from 'node:fs';
+import      katex   from './katex.min.js';  // weird but correct
+import * as csso    from './csso.min.mjs';
+
+const srcPrefix = 'src/';
+const dstPrefix = 'docs/';
+
+const styles = Object.fromEntries(
+  Array.from(node_fs.readFileSync('mk/style.css.in', { encoding: 'utf8' }).matchAll(/<(\w+)(.*?)>/gs))
+    .map(([_, tag, css]) => [tag, csso.minify(css).css]));
+
+const pageIndex = renderPages('post/', 'index.html', { title: 'Home Page - Vursc' });
+renderPages('note/', 'notes.html', { title: 'Notes' });
+renderIndex('posts.html', pageIndex, { title: 'Posts' });
+
+
+function renderPages(path, idxpath, options) {
+  node_fs.mkdirSync(dstPrefix + path);
+
+  const files = node_fs.readdirSync(srcPrefix + path);
+  const pages = files.map(file => path + file.slice(0, -4));
+  const index = pages.map(page => renderPage(`${page}.txt`, `${page}.html`, idxpath));
+
+  renderIndex(idxpath, index, options);
+  return index;
+}
+
+function renderIndex(dstpath, index, options) {
+  const lines = index.slice().reverse().map(({ title, created, updated, dstpath }) =>
+    `<time>${htmlText(updated ?? created)
+     }</time><a href="${htmlAttr(dstpath)}">${htmlText(title)}</a>`);
+  const content = `<ol>${lines.map(line => `<li>${line}</li>`).join('')}</ol>`;
+  formatPage(dstpath, { ...options, content, style: styles.common + styles.list });
+}
+
+function renderPage(srcpath, dstpath, idxpath) {
+  // merging lines this way does not work for math blocks
+  const lines = readSource(srcpath).split('\n').entries();
+
+  const attrs = { title: 'Untitled', created: '????-??-??', dstpath };
+  for (const [lidx, line] of lines) {
+    if (!line.startsWith('#:')) break;
+    const [_, key, val] = line.match(/^#:(\w+):(.*)$/);
+    attrs[key] = val.trim();
+  }
+  const flags = {}, katexMacros = {
+    '\\tuple': '\\langle{#1}\\rangle'
+  };
+
+  let content = '', state = 'wait';
+  for (const [lidx, line] of lines) {
+    if (line === '#-------') {
+      if (state !== 'wait') content += '</p>';
+      content += '<hr/>';
+      state = 'wait';
+      flags.rule = true;
+    } else if (line.startsWith('# ')) {
+      if (state !== 'wait') content += '</p>';
+      content += '<h2>' + renderLine(line.slice(2)) + '</h2>';
+      state = 'wait';
+    } else if (line.startsWith('#<')) {
+      content += '<pre>';
+      for (const [lidx, line] of lines)
+        if (line === '#>') break;
+        else content += htmlText(line) + '\n';
+      content += '</pre>';
+      state = 'cont';
+      flags.code = true;
+    } else if (line.startsWith('#[')) {
+      // TODO: somehow strip whitespace
+      let that = '';
+      for (const [lidx, line] of lines)
+        if (line === '#]') break;
+        else that += line;
+      content += renderMath(that, true);
+      state = 'cont';
+      flags.math = true;
+    } else if (line !== '') {
+      content += { wait: '<p>', text: '<br/>', cont: '' }[state];
+      content += renderLine(line.slice(line.startsWith('#.')));
+      state = 'text';
+    } else {
+      if (state !== 'wait') content += '</p>';
+      state = 'wait';
+    }
+  }
+  formatPage(dstpath, {
+    title: attrs.title,
+    style: styles.common + styles.page + (flags.rule ? styles.rule : '') +
+      (flags.math ? styles.math : '') + (flags.code ? styles.code : ''),
+    // TODO: resolve relative paths properly; fix `idxpath` in `renderPages` as well
+    // require('node:path').posix may be useful
+    extra: flags.math ? '<link rel="stylesheet" href="../static/katex.min.css"/>' : '',
+    context: `<div id="ctx"><a href="../${htmlAttr(idxpath)}">[Index]</a> <span>Created ${attrs.created
+      }${attrs.updated ? `, Updated ${attrs.updated}` : ''}</span></div>`,
+    content,
+  });
+  return attrs;
+
+  function renderMath(math, display) {
+    return katex.renderToString(math, {
+      displayMode: !!display,
+      macros: katexMacros,
+    });
+  }
+  function renderLine(line) {
+    // TODO: switch to recursion (returns [result, length] pair, with `length`
+    // pointing to next character after closing '}' or ']'. Need to be wrapped
+    // inside function which append '}' to `line`.
+    const funStack = [];
+    const optStack = [];
+    const strStack = [''];
+
+    while (true) {
+      const len = line.length;
+      const idx = Math.min(...['\\', '}', '$', '`',].map(chr => ((line.indexOf(chr) + 1) || (len + 1)) - 1));
+      // if the stack mechanism is generalized to handle various contexts
+      // the `htmlText` call should be replaced according to context (e.g. in math, no transform needed)
+      push(htmlText(line.slice(0, idx)));
+      line = line.slice(idx);
+      if (line === '') {
+        return strStack.pop();
+      } else if (line[0] === '\\') {
+        // currently `opt` must be plain text and only ']' needs escaping
+        // remove this restriction if problematic
+        const [seq, fun, opt] = line.match(/\\(\w+)(?:\[(.*?)(?<!\\)\])?\{/) ?? [];
+        if (seq) {
+          funStack.push(fun);
+          optStack.push(opt && htmlText(opt.replace(/\\./g, ([a, b]) => b)));
+          strStack.push('');
+          line = line.slice(seq.length);
+        } else {
+          push(line[1]);
+          line = line.slice(2);
+        }
+      } else if (line[0] === '}') {
+        const fun = funStack.pop();
+        const opt = optStack.pop();
+        const str = strStack.pop();
+        // TODO: implement xseq: href, xref, rref, fn, footnote, em, sl
+        if (fun === 'sl') {
+          push(`<i>${str}</i>`);
+        } else if (fun === 'em') {
+          push(`<em>${str}</em>`);
+        } else if (fun === 'href') {
+          push(`<a href="${htmlAttr(str)}">${htmlText(opt ?? str)}</a>`);
+        } else {
+          push(`<span style="color:red">${fun}</span>`);
+        }
+        line = line.slice(1);
+      } else if (line[0] === '$') {
+        const [seq, that] = line.match(/\$(.*?)(?<!@)\$/);
+        const math = that.replace(/@./g, ([a, b]) => b);
+        push(renderMath(math));
+        line = line.slice(seq.length);
+        flags.math = true;
+      } else if (line[0] === '`') {
+        const [seq, that] = line.match(/`(.*?)(?<!\\)`/);
+        const code = that.replace(/\\./g, ([a, b]) => b);
+        push('<code>' + htmlText(code) + '</code>');
+        line = line.slice(seq.length);
+        flags.code = true;
+      }
+    }
+
+    function push(str) {
+      strStack.push(strStack.pop() + str);
+    }
+  }
+}
+
+
+function readSource(srcpath) {
+  return node_fs.readFileSync(srcPrefix + srcpath, { encoding: 'utf8' });
+}
+
+function formatPage(dstpath, options) {
+  console.log(`+ ${dstpath}`);
+  const template =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"/>' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1"/>' +
+    '<title>{title}</title><style>{style}</style>{extra}</head>' +
+    '<body><header><h1>{title}</h1></header>{context}{content}</body></html>';
+  const pageData = template.replace(/\{(\w+)\}/g, (_, key) => options[key] ?? '');
+  node_fs.writeFileSync(dstPrefix + dstpath, pageData);
+}
+
+
+function htmlText(string) {
+  return string.replace('&', '&amp;').replace('<', '&lt;');
+}
+
+function htmlAttr(string) {
+  return string.replace('&', '&amp;').replace('<', '&lt;').replace('"', '&quot;');
+}
